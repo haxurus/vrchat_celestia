@@ -47,7 +47,7 @@ jobs:
 
       - name: Prepara cartella immagini
         run: |
-          mkdir -p immagini
+          mkdir -p immagini_in_mappa
 
           for FILE in *.png *.jpg *.jpeg *.webp *.gif *.avif; do
             if [ -f "$FILE" ]; then
