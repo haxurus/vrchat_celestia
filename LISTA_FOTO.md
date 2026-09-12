@@ -1,38 +1,38 @@
 # LISTA FOTO
 
-- **Foto 1** — da inserire la posizione della foto = ✅ caricata
+- **Foto 1** — da inserire la posizione della foto = ❌ non caricata
 
-- **Foto 2** — da inserire la posizione della foto = ✅ caricata
+- **Foto 2** — da inserire la posizione della foto = ❌ non caricata
 
-- **Foto 3** — da inserire la posizione della foto = ✅ caricata
+- **Foto 3** — da inserire la posizione della foto = ❌ non caricata
 
-- **Foto 4** — da inserire la posizione della foto = ✅ caricata
+- **Foto 4** — da inserire la posizione della foto = ❌ non caricata
 
-- **Foto 5** — da inserire la posizione della foto = ✅ caricata
+- **Foto 5** — da inserire la posizione della foto = ❌ non caricata
 
-- **Foto 6** — da inserire la posizione della foto = ✅ caricata
+- **Foto 6** — da inserire la posizione della foto = ❌ non caricata
 
-- **Foto 7** — da inserire la posizione della foto = ✅ caricata
+- **Foto 7** — da inserire la posizione della foto = ❌ non caricata
 
-- **Foto 8** — da inserire la posizione della foto = ✅ caricata
+- **Foto 8** — da inserire la posizione della foto = ❌ non caricata
 
-- **Foto 9** — da inserire la posizione della foto = ✅ caricata
+- **Foto 9** — da inserire la posizione della foto = ❌ non caricata
 
-- **Foto 10** — da inserire la posizione della foto = ✅ caricata
+- **Foto 10** — da inserire la posizione della foto = ❌ non caricata
 
-- **Foto 11** — da inserire la posizione della foto = ✅ caricata
+- **Foto 11** — da inserire la posizione della foto = ❌ non caricata
 
-- **Foto 12** — da inserire la posizione della foto = ✅ caricata
+- **Foto 12** — da inserire la posizione della foto = ❌ non caricata
 
-- **Foto 13** — da inserire la posizione della foto = ✅ caricata
+- **Foto 13** — da inserire la posizione della foto = ❌ non caricata
 
-- **Foto 14** — da inserire la posizione della foto = ✅ caricata
+- **Foto 14** — da inserire la posizione della foto = ❌ non caricata
 
-- **Foto 15** — da inserire la posizione della foto = ✅ caricata
+- **Foto 15** — da inserire la posizione della foto = ❌ non caricata
 
-- **Foto 16** — da inserire la posizione della foto = ✅ caricata
+- **Foto 16** — da inserire la posizione della foto = ❌ non caricata
 
-- **Foto 17** — da inserire la posizione della foto = ✅ caricata
+- **Foto 17** — da inserire la posizione della foto = ❌ non caricata
 
 - **Foto 18** — da inserire la posizione della foto = ❌ non caricata
 
