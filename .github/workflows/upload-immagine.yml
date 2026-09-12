@@ -522,14 +522,54 @@ jobs:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           NUMERO: ${{ github.event.client_payload.numero }}
         run: |
-          curl \
-            --fail-with-body \
+          set -e
+
+          TEMPO=30
+
+          HTTP_CODE=$(curl \
             -sS \
+            -o discord-conferma.json \
+            -w "%{http_code}" \
+            -X POST \
             -H "Content-Type: application/json" \
             -H "User-Agent: ZeroTwo-GitHubActions/1.0" \
-            -d \
-            "{\"content\":\"✅ **Foto ${NUMERO} caricata correttamente su GitHub nella cartella immagini.**\"}" \
-            "$DISCORD_WEBHOOK_URL"
+            -d "{\"content\":\"✅ **Foto ${NUMERO} caricata correttamente su GitHub nella cartella immagini.**\"}" \
+            "${DISCORD_WEBHOOK_URL}?wait=true")
+
+          echo "Invio messaggio Discord HTTP: $HTTP_CODE"
+
+          if [ "$HTTP_CODE" != "200" ]; then
+            cat discord-conferma.json || true
+            echo "ERRORE: impossibile inviare il messaggio Discord"
+            exit 1
+          fi
+
+          MESSAGE_ID=$(python3 -c \
+            'import json; print(json.load(open("discord-conferma.json"))["id"])')
+
+          echo "ID messaggio: $MESSAGE_ID"
+          echo "Attendo ${TEMPO} secondi prima di cancellarlo..."
+
+          sleep "$TEMPO"
+
+          DELETE_CODE=$(curl \
+            -sS \
+            -o /dev/null \
+            -w "%{http_code}" \
+            -X DELETE \
+            -H "User-Agent: ZeroTwo-GitHubActions/1.0" \
+            "${DISCORD_WEBHOOK_URL}/messages/${MESSAGE_ID}")
+
+          echo "Cancellazione Discord HTTP: $DELETE_CODE"
+
+          if [ "$DELETE_CODE" != "204" ]; then
+            echo "ERRORE: impossibile cancellare il messaggio Discord"
+            exit 1
+          fi
+
+          echo "Messaggio cancellato correttamente."
+
+          rm -f discord-conferma.json
 
       - name: Conferma caricamento fallito su Discord
         if: always() && steps.salva_upload.outputs.caricata != 'true'
