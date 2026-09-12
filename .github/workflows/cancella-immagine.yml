@@ -52,6 +52,17 @@ jobs:
           print(f'Foto trovata: {numero}. {foto["nome"]}')
           PY
 
+      - name: Verifica cartella immagini_in_mappa
+        run: |
+          set -e
+
+          if [ ! -d "immagini_in_mappa" ]; then
+            echo "ERRORE: la cartella immagini_in_mappa non esiste."
+            exit 1
+          fi
+
+          echo "Cartella immagini_in_mappa trovata."
+
       - name: Cancella immagine
         env:
           NUMERO: ${{ github.event.client_payload.numero }}
@@ -67,7 +78,7 @@ jobs:
 
           for EXT in png jpg jpeg webp gif avif; do
 
-            FILE="immagini/${NUMERO}.${EXT}"
+            FILE="immagini_in_mappa/${NUMERO}.${EXT}"
 
             if [ -f "$FILE" ]; then
               echo "Cancello: $FILE"
@@ -75,41 +86,67 @@ jobs:
               TROVATA=true
             fi
 
-            OLD_FILE="${NUMERO}.${EXT}"
-
-            if [ -f "$OLD_FILE" ]; then
-              echo "Cancello vecchia immagine: $OLD_FILE"
-              rm -f "$OLD_FILE"
-              TROVATA=true
-            fi
-
           done
 
           if [ "$TROVATA" = false ]; then
             echo \
-              "ERRORE: nessuna immagine trovata con numero ${NUMERO}"
+              "ERRORE: nessuna immagine trovata con numero ${NUMERO} in immagini_in_mappa"
             exit 1
           fi
 
-          echo "Foto ${NUMERO} cancellata localmente."
+          echo \
+            "Foto ${NUMERO} cancellata da immagini_in_mappa."
 
-      - name: Aggiorna lista foto
-        env:
-          NUMERO: ${{ github.event.client_payload.numero }}
+      - name: Sincronizza lista con immagini esistenti
         run: |
           python3 <<'PY'
           import json
           import os
 
-          numero = int(os.environ["NUMERO"])
+          CARTELLA = "immagini_in_mappa"
+
+          ESTENSIONI = {
+              ".png",
+              ".jpg",
+              ".jpeg",
+              ".webp",
+              ".gif",
+              ".avif"
+          }
+
+          presenti = set()
+
+          for nome_file in os.listdir(CARTELLA):
+
+              percorso = os.path.join(
+                  CARTELLA,
+                  nome_file
+              )
+
+              if not os.path.isfile(percorso):
+                  continue
+
+              nome, estensione = os.path.splitext(nome_file)
+
+              if (
+                  nome.isdigit()
+                  and estensione.lower() in ESTENSIONI
+              ):
+                  presenti.add(int(nome))
 
           with open("lista-foto.json", "r", encoding="utf-8") as f:
               dati = json.load(f)
 
           for foto in dati:
 
-              if int(foto["numero"]) == numero:
-                  foto["caricata"] = False
+              numero = int(foto["numero"])
+
+              foto["caricata"] = numero in presenti
+
+              if foto["caricata"]:
+                  print(f"✅ Foto {numero} trovata")
+              else:
+                  print(f"❌ Foto {numero} non trovata")
 
           dati = sorted(
               dati,
@@ -141,8 +178,9 @@ jobs:
                       f'{foto["nome"]} = {stato}\n\n'
                   )
 
+          print("")
           print(
-              f"Foto {numero} impostata come NON CARICATA."
+              f"Totale immagini riconosciute: {len(presenti)}"
           )
           PY
 
@@ -166,7 +204,7 @@ jobs:
           fi
 
           git commit \
-            -m "Cancellata foto ${NUMERO} dalla cartella immagini"
+            -m "Cancellata foto ${NUMERO} da immagini_in_mappa"
 
           git push
 
@@ -181,13 +219,13 @@ jobs:
 
           if git ls-tree -r origin/main --name-only | \
             grep -Eq \
-            "^(immagini/)?${NUMERO}\.(png|jpg|jpeg|webp|gif|avif)$"
+            "^immagini_in_mappa/${NUMERO}\.(png|jpg|jpeg|webp|gif|avif)$"
           then
 
             echo "cancellata=false" >> "$GITHUB_OUTPUT"
 
             echo \
-              "ERRORE: foto ${NUMERO} ancora presente su GitHub."
+              "ERRORE: foto ${NUMERO} ancora presente in immagini_in_mappa su GitHub."
 
             exit 1
 
@@ -196,7 +234,7 @@ jobs:
             echo "cancellata=true" >> "$GITHUB_OUTPUT"
 
             echo \
-              "Foto ${NUMERO} eliminata realmente da GitHub."
+              "Foto ${NUMERO} eliminata realmente da immagini_in_mappa."
 
           fi
 
@@ -458,22 +496,29 @@ jobs:
             -X POST \
             -H "Content-Type: application/json" \
             -H "User-Agent: ZeroTwo-GitHubActions/1.0" \
-            -d "{\"content\":\"🗑️ **Foto ${NUMERO} cancellata correttamente dalla cartella immagini su GitHub.**\"}" \
+            -d "{\"content\":\"🗑️ **Foto ${NUMERO} cancellata correttamente da immagini_in_mappa su GitHub.**\"}" \
             "${DISCORD_WEBHOOK_URL}?wait=true")
 
           echo "Invio messaggio Discord HTTP: $HTTP_CODE"
 
           if [ "$HTTP_CODE" != "200" ]; then
+
             cat discord-conferma.json || true
-            echo "ERRORE: impossibile inviare il messaggio Discord"
+
+            echo \
+              "ERRORE: impossibile inviare il messaggio Discord"
+
             exit 1
+
           fi
 
           MESSAGE_ID=$(python3 -c \
             'import json; print(json.load(open("discord-conferma.json"))["id"])')
 
           echo "ID messaggio: $MESSAGE_ID"
-          echo "Attendo ${TEMPO} secondi prima di cancellarlo..."
+
+          echo \
+            "Attendo ${TEMPO} secondi prima di cancellarlo..."
 
           sleep "$TEMPO"
 
@@ -485,11 +530,16 @@ jobs:
             -H "User-Agent: ZeroTwo-GitHubActions/1.0" \
             "${DISCORD_WEBHOOK_URL}/messages/${MESSAGE_ID}")
 
-          echo "Cancellazione Discord HTTP: $DELETE_CODE"
+          echo \
+            "Cancellazione Discord HTTP: $DELETE_CODE"
 
           if [ "$DELETE_CODE" != "204" ]; then
-            echo "ERRORE: impossibile cancellare il messaggio Discord"
+
+            echo \
+              "ERRORE: impossibile cancellare il messaggio Discord"
+
             exit 1
+
           fi
 
           echo "Messaggio cancellato correttamente."
