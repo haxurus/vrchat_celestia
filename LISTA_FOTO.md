@@ -20,7 +20,7 @@
 
 - **Foto 10** — da inserire la posizione della foto = ✅ caricata
 
-- **Foto 11** — da inserire la posizione della foto = ❌ non caricata
+- **Foto 11** — da inserire la posizione della foto = ✅ caricata
 
 - **Foto 12** — da inserire la posizione della foto = ❌ non caricata
 
