@@ -16,7 +16,7 @@
 
 - **Foto 8** — da inserire la posizione della foto = ✅ caricata
 
-- **Foto 9** — da inserire la posizione della foto = ❌ non caricata
+- **Foto 9** — da inserire la posizione della foto = ✅ caricata
 
 - **Foto 10** — da inserire la posizione della foto = ❌ non caricata
 
