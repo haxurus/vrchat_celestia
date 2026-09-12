@@ -4,7 +4,7 @@
 
 - **Foto 2** — da inserire la posizione della foto = ✅ caricata
 
-- **Foto 3** — da inserire la posizione della foto = ❌ non caricata
+- **Foto 3** — da inserire la posizione della foto = ✅ caricata
 
 - **Foto 4** — da inserire la posizione della foto = ❌ non caricata
 
