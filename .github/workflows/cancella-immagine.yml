@@ -34,8 +34,17 @@ jobs:
               print("ERRORE: numero non valido")
               sys.exit(1)
 
+          if numero < 1 or numero > 80:
+              print("ERRORE: il numero foto deve essere compreso tra 1 e 80")
+              sys.exit(1)
+
           with open("lista-foto.json", "r", encoding="utf-8") as f:
               dati = json.load(f)
+
+          dati = [
+              foto for foto in dati
+              if 1 <= int(foto["numero"]) <= 80
+          ]
 
           foto = next(
               (x for x in dati if int(x["numero"]) == numero),
@@ -71,6 +80,11 @@ jobs:
 
           if [[ ! "$NUMERO" =~ ^[0-9]+$ ]]; then
             echo "ERRORE: numero non valido"
+            exit 1
+          fi
+
+          if [ "$NUMERO" -lt 1 ] || [ "$NUMERO" -gt 80 ]; then
+            echo "ERRORE: il numero foto deve essere compreso tra 1 e 80"
             exit 1
           fi
 
@@ -132,10 +146,18 @@ jobs:
                   nome.isdigit()
                   and estensione.lower() in ESTENSIONI
               ):
-                  presenti.add(int(nome))
+                  numero_file = int(nome)
+
+                  if 1 <= numero_file <= 80:
+                      presenti.add(numero_file)
 
           with open("lista-foto.json", "r", encoding="utf-8") as f:
               dati = json.load(f)
+
+          dati = [
+              foto for foto in dati
+              if 1 <= int(foto["numero"]) <= 80
+          ]
 
           for foto in dati:
 
@@ -206,7 +228,14 @@ jobs:
           git commit \
             -m "Cancellata foto ${NUMERO} da immagini_in_mappa"
 
-          git push
+          echo "Recupero eventuali modifiche nuove da GitHub..."
+
+          git fetch origin main
+          git rebase origin/main
+
+          echo "Invio modifiche a GitHub..."
+
+          git push origin HEAD:main
 
       - name: Verifica foto cancellata da GitHub
         id: verifica_delete
@@ -248,6 +277,11 @@ jobs:
 
           with open("lista-foto.json", "r", encoding="utf-8") as f:
               dati = json.load(f)
+
+          dati = [
+              foto for foto in dati
+              if 1 <= int(foto["numero"]) <= 80
+          ]
 
           dati = sorted(
               dati,
@@ -436,6 +470,32 @@ jobs:
 
           }
 
+          # Se esiste ancora il vecchio blocco 81-100, cancellalo una volta.
+          if [ -f "discord-id-lista-5.txt" ] && [ -s "discord-id-lista-5.txt" ]; then
+
+            OLD_MESSAGE_ID=$(tr -d '\r\n' < "discord-id-lista-5.txt")
+
+            echo "Cancello il vecchio messaggio Discord FOTO 81 - 100: ${OLD_MESSAGE_ID}"
+
+            DELETE_OLD_CODE=$(curl \
+              -sS \
+              -o /dev/null \
+              -w "%{http_code}" \
+              -X DELETE \
+              -H "User-Agent: ZeroTwo-GitHubActions/1.0" \
+              "${DISCORD_WEBHOOK_URL}/messages/${OLD_MESSAGE_ID}")
+
+            echo "Cancellazione vecchio blocco Discord HTTP: $DELETE_OLD_CODE"
+
+            if [ "$DELETE_OLD_CODE" = "204" ] || [ "$DELETE_OLD_CODE" = "404" ]; then
+              rm -f "discord-id-lista-5.txt"
+              echo "Vecchio blocco 81-100 rimosso."
+            else
+              echo "ATTENZIONE: non sono riuscito a rimuovere il vecchio blocco 81-100."
+            fi
+
+          fi
+
           sincronizza_messaggio \
             "discord-riepilogo.json" \
             "discord-id-riepilogo.txt"
@@ -464,8 +524,7 @@ jobs:
           git config user.email \
             "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add discord-id-riepilogo.txt 2>/dev/null || true
-          git add discord-id-lista-*.txt 2>/dev/null || true
+          git add -A
 
           if git diff --cached --quiet; then
 
@@ -477,7 +536,9 @@ jobs:
           git commit \
             -m "Aggiornati ID messaggi lista Discord"
 
-          git push
+          git fetch origin main
+          git rebase origin/main
+          git push origin HEAD:main
 
       - name: Conferma cancellazione riuscita
         if: always() && steps.verifica_delete.outputs.cancellata == 'true'
