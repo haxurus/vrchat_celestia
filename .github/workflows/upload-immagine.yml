@@ -52,24 +52,16 @@ jobs:
           print(f'Foto trovata: {numero}. {foto["nome"]}')
           PY
 
-      - name: Prepara cartella immagini
+      - name: Verifica cartella immagini_in_mappa
         run: |
-          mkdir -p immagini_in_mappa
+          set -e
 
-          for FILE in *.png *.jpg *.jpeg *.webp *.gif *.avif; do
+          if [ ! -d "immagini_in_mappa" ]; then
+            echo "ERRORE: la cartella immagini_in_mappa non esiste."
+            exit 1
+          fi
 
-            if [ -f "$FILE" ]; then
-
-              if [[ "$FILE" =~ ^[0-9]+\.(png|jpg|jpeg|webp|gif|avif)$ ]]; then
-
-                echo "Sposto $FILE in immagini/"
-                mv -f "$FILE" "immagini/$FILE"
-
-              fi
-
-            fi
-
-          done
+          echo "Cartella immagini_in_mappa trovata."
 
       - name: Scarica e rinomina immagine
         env:
@@ -88,49 +80,40 @@ jobs:
           TIPO=$(file --mime-type -b immagine_temp)
 
           case "$TIPO" in
-
             image/png)
               EXT="png"
               ;;
-
             image/jpeg)
               EXT="jpg"
               ;;
-
             image/webp)
               EXT="webp"
               ;;
-
             image/gif)
               EXT="gif"
               ;;
-
             image/avif)
               EXT="avif"
               ;;
-
             *)
               echo "ERRORE: formato non supportato: $TIPO"
               rm -f immagine_temp
               exit 1
               ;;
-
           esac
 
-          mkdir -p immagini
+          rm -f "immagini_in_mappa/${NUMERO}.png"
+          rm -f "immagini_in_mappa/${NUMERO}.jpg"
+          rm -f "immagini_in_mappa/${NUMERO}.jpeg"
+          rm -f "immagini_in_mappa/${NUMERO}.webp"
+          rm -f "immagini_in_mappa/${NUMERO}.gif"
+          rm -f "immagini_in_mappa/${NUMERO}.avif"
 
-          rm -f "immagini/${NUMERO}.png"
-          rm -f "immagini/${NUMERO}.jpg"
-          rm -f "immagini/${NUMERO}.jpeg"
-          rm -f "immagini/${NUMERO}.webp"
-          rm -f "immagini/${NUMERO}.gif"
-          rm -f "immagini/${NUMERO}.avif"
+          mv immagine_temp "immagini_in_mappa/${NUMERO}.${EXT}"
 
-          mv immagine_temp "immagini/${NUMERO}.${EXT}"
+          echo "Immagine salvata come immagini_in_mappa/${NUMERO}.${EXT}"
 
-          echo "Immagine salvata come immagini/${NUMERO}.${EXT}"
-
-      - name: Aggiorna lista foto
+      - name: Sincronizza lista con immagini esistenti
         env:
           NUMERO: ${{ github.event.client_payload.numero }}
         run: |
@@ -138,15 +121,50 @@ jobs:
           import json
           import os
 
-          numero = int(os.environ["NUMERO"])
+          CARTELLA = "immagini_in_mappa"
+
+          ESTENSIONI = {
+              ".png",
+              ".jpg",
+              ".jpeg",
+              ".webp",
+              ".gif",
+              ".avif"
+          }
+
+          presenti = set()
+
+          for nome_file in os.listdir(CARTELLA):
+
+              percorso = os.path.join(
+                  CARTELLA,
+                  nome_file
+              )
+
+              if not os.path.isfile(percorso):
+                  continue
+
+              nome, estensione = os.path.splitext(nome_file)
+
+              if (
+                  nome.isdigit()
+                  and estensione.lower() in ESTENSIONI
+              ):
+                  presenti.add(int(nome))
 
           with open("lista-foto.json", "r", encoding="utf-8") as f:
               dati = json.load(f)
 
           for foto in dati:
 
-              if int(foto["numero"]) == numero:
-                  foto["caricata"] = True
+              numero = int(foto["numero"])
+
+              foto["caricata"] = numero in presenti
+
+              if foto["caricata"]:
+                  print(f"✅ Foto {numero} trovata")
+              else:
+                  print(f"❌ Foto {numero} non trovata")
 
           dati = sorted(
               dati,
@@ -178,7 +196,10 @@ jobs:
                       f'{foto["nome"]} = {stato}\n\n'
                   )
 
-          print(f"Foto {numero} impostata come caricata.")
+          print("")
+          print(
+              f"Totale immagini riconosciute: {len(presenti)}"
+          )
           PY
 
       - name: Salva modifiche nel repository
@@ -192,7 +213,7 @@ jobs:
           git config user.email \
             "41898282+github-actions[bot]@users.noreply.github.com"
 
-          FOTO=$(find immagini -maxdepth 1 -type f \( \
+          FOTO=$(find immagini_in_mappa -maxdepth 1 -type f \( \
             -name "${NUMERO}.png" -o \
             -name "${NUMERO}.jpg" -o \
             -name "${NUMERO}.jpeg" -o \
@@ -206,10 +227,9 @@ jobs:
             echo "caricata=false" >> "$GITHUB_OUTPUT"
 
             echo \
-              "ERRORE: foto ${NUMERO} non trovata nella cartella immagini."
+              "ERRORE: foto ${NUMERO} non trovata in immagini_in_mappa."
 
             exit 1
-
           fi
 
           git add -A
@@ -221,7 +241,7 @@ jobs:
           else
 
             git commit \
-              -m "Caricata foto ${NUMERO} nella cartella immagini"
+              -m "Caricata foto ${NUMERO} in immagini_in_mappa"
 
             git push
 
@@ -231,20 +251,20 @@ jobs:
 
           if git ls-tree -r origin/main --name-only | \
             grep -Eq \
-            "^immagini/${NUMERO}\.(png|jpg|jpeg|webp|gif|avif)$"
+            "^immagini_in_mappa/${NUMERO}\.(png|jpg|jpeg|webp|gif|avif)$"
           then
 
             echo "caricata=true" >> "$GITHUB_OUTPUT"
 
             echo \
-              "Foto ${NUMERO} verificata su GitHub nella cartella immagini."
+              "Foto ${NUMERO} verificata in immagini_in_mappa su GitHub."
 
           else
 
             echo "caricata=false" >> "$GITHUB_OUTPUT"
 
             echo \
-              "ERRORE: foto ${NUMERO} non presente su GitHub."
+              "ERRORE: foto ${NUMERO} non presente in immagini_in_mappa su GitHub."
 
             exit 1
 
@@ -501,8 +521,8 @@ jobs:
           git config user.email \
             "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add discord-id-riepilogo.txt
-          git add discord-id-lista-*.txt
+          git add discord-id-riepilogo.txt 2>/dev/null || true
+          git add discord-id-lista-*.txt 2>/dev/null || true
 
           if git diff --cached --quiet; then
 
@@ -533,22 +553,29 @@ jobs:
             -X POST \
             -H "Content-Type: application/json" \
             -H "User-Agent: ZeroTwo-GitHubActions/1.0" \
-            -d "{\"content\":\"✅ **Foto ${NUMERO} caricata correttamente su GitHub nella cartella immagini.**\"}" \
+            -d "{\"content\":\"✅ **Foto ${NUMERO} caricata correttamente su GitHub in immagini_in_mappa.**\"}" \
             "${DISCORD_WEBHOOK_URL}?wait=true")
 
           echo "Invio messaggio Discord HTTP: $HTTP_CODE"
 
           if [ "$HTTP_CODE" != "200" ]; then
+
             cat discord-conferma.json || true
-            echo "ERRORE: impossibile inviare il messaggio Discord"
+
+            echo \
+              "ERRORE: impossibile inviare il messaggio Discord"
+
             exit 1
+
           fi
 
           MESSAGE_ID=$(python3 -c \
             'import json; print(json.load(open("discord-conferma.json"))["id"])')
 
           echo "ID messaggio: $MESSAGE_ID"
-          echo "Attendo ${TEMPO} secondi prima di cancellarlo..."
+
+          echo \
+            "Attendo ${TEMPO} secondi prima di cancellarlo..."
 
           sleep "$TEMPO"
 
@@ -560,11 +587,16 @@ jobs:
             -H "User-Agent: ZeroTwo-GitHubActions/1.0" \
             "${DISCORD_WEBHOOK_URL}/messages/${MESSAGE_ID}")
 
-          echo "Cancellazione Discord HTTP: $DELETE_CODE"
+          echo \
+            "Cancellazione Discord HTTP: $DELETE_CODE"
 
           if [ "$DELETE_CODE" != "204" ]; then
-            echo "ERRORE: impossibile cancellare il messaggio Discord"
+
+            echo \
+              "ERRORE: impossibile cancellare il messaggio Discord"
+
             exit 1
+
           fi
 
           echo "Messaggio cancellato correttamente."
