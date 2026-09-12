@@ -7,6 +7,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: immagini-repository
+  cancel-in-progress: false
+
 jobs:
   cancella-immagine:
     runs-on: ubuntu-latest
@@ -39,7 +43,10 @@ jobs:
           )
 
           if foto is None:
-              print(f"ERRORE: foto numero {numero} non presente nella lista")
+              print(
+                  f"ERRORE: foto numero {numero} "
+                  f"non presente nella lista"
+              )
               sys.exit(1)
 
           print(f'Foto trovata: {numero}. {foto["nome"]}')
@@ -79,7 +86,8 @@ jobs:
           done
 
           if [ "$TROVATA" = false ]; then
-            echo "ERRORE: nessuna immagine trovata con numero ${NUMERO}"
+            echo \
+              "ERRORE: nessuna immagine trovata con numero ${NUMERO}"
             exit 1
           fi
 
@@ -99,6 +107,7 @@ jobs:
               dati = json.load(f)
 
           for foto in dati:
+
               if int(foto["numero"]) == numero:
                   foto["caricata"] = False
 
@@ -116,17 +125,25 @@ jobs:
               )
 
           with open("LISTA_FOTO.md", "w", encoding="utf-8") as f:
+
               f.write("# LISTA FOTO\n\n")
 
               for foto in dati:
-                  stato = "✅ caricata" if foto["caricata"] else "❌ non caricata"
+
+                  stato = (
+                      "✅ caricata"
+                      if foto["caricata"]
+                      else "❌ non caricata"
+                  )
 
                   f.write(
                       f'- **Foto {foto["numero"]}** — '
                       f'{foto["nome"]} = {stato}\n\n'
                   )
 
-          print(f"Foto {numero} impostata come NON CARICATA.")
+          print(
+              f"Foto {numero} impostata come NON CARICATA."
+          )
           PY
 
       - name: Salva cancellazione su GitHub
@@ -136,16 +153,21 @@ jobs:
           set -e
 
           git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
 
           git add -A
 
           if git diff --cached --quiet; then
+
             echo "ERRORE: nessuna modifica da salvare."
             exit 1
+
           fi
 
-          git commit -m "Cancellata foto ${NUMERO} dalla cartella immagini"
+          git commit \
+            -m "Cancellata foto ${NUMERO} dalla cartella immagini"
+
           git push
 
       - name: Verifica foto cancellata da GitHub
@@ -157,29 +179,34 @@ jobs:
 
           git fetch origin main
 
-          if git ls-tree -r origin/main --name-only | grep -Eq "^(immagini/)?${NUMERO}\.(png|jpg|jpeg|webp|gif|avif)$"; then
+          if git ls-tree -r origin/main --name-only | \
+            grep -Eq \
+            "^(immagini/)?${NUMERO}\.(png|jpg|jpeg|webp|gif|avif)$"
+          then
+
             echo "cancellata=false" >> "$GITHUB_OUTPUT"
-            echo "ERRORE: foto ${NUMERO} ancora presente su GitHub."
+
+            echo \
+              "ERRORE: foto ${NUMERO} ancora presente su GitHub."
+
             exit 1
+
           else
+
             echo "cancellata=true" >> "$GITHUB_OUTPUT"
-            echo "Foto ${NUMERO} eliminata realmente da GitHub."
+
+            echo \
+              "Foto ${NUMERO} eliminata realmente da GitHub."
+
           fi
 
-      - name: Aggiorna lista su Discord
+      - name: Crea lista Discord divisa
         if: steps.verifica_delete.outputs.cancellata == 'true'
-        env:
-          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
         run: |
-          set -e
-
-          if [ -z "$DISCORD_WEBHOOK_URL" ]; then
-            echo "ERRORE: DISCORD_WEBHOOK_URL non configurato"
-            exit 1
-          fi
-
           python3 <<'PY'
           import json
+
+          COLORE = int("ff004f", 16)
 
           with open("lista-foto.json", "r", encoding="utf-8") as f:
               dati = json.load(f)
@@ -189,84 +216,152 @@ jobs:
               key=lambda x: int(x["numero"])
           )
 
-          righe = []
-
-          for foto in dati:
-              stato = "✅ caricata" if foto["caricata"] else "❌ non caricata"
-
-              righe.append(
-                  f'**Foto {foto["numero"]}** — '
-                  f'{foto["nome"]} = {stato}'
-              )
-
           totale_caricate = sum(
-              1 for foto in dati
+              1
+              for foto in dati
               if foto["caricata"]
           )
 
-          embeds = [
-              {
-                  "title": "📸 LISTA FOTO",
-                  "description": (
-                      f"**Totale foto:** {len(dati)}\n"
-                      f"**Caricate:** {totale_caricate}\n"
-                      f"**Non caricate:** {len(dati) - totale_caricate}"
-                  )
-              }
-          ]
-
-          dimensione = 20
-
-          for i in range(0, len(righe), dimensione):
-              inizio = i + 1
-              fine = min(i + dimensione, len(righe))
-
-              embeds.append({
-                  "title": f"📋 FOTO {inizio} - {fine}",
-                  "description": "\n".join(
-                      righe[i:i + dimensione]
-                  )
-              })
-
-          payload = {
+          riepilogo = {
               "username": "ZeroTwo",
-              "embeds": embeds
+              "embeds": [
+                  {
+                      "title": "📸 LISTA FOTO",
+                      "description": (
+                          f"**Totale foto:** {len(dati)}\n"
+                          f"**Caricate:** {totale_caricate}\n"
+                          f"**Non caricate:** "
+                          f"{len(dati) - totale_caricate}"
+                      ),
+                      "color": COLORE
+                  }
+              ]
           }
 
           with open(
-              "discord-payload.json",
+              "discord-riepilogo.json",
               "w",
               encoding="utf-8"
           ) as f:
+
               json.dump(
-                  payload,
+                  riepilogo,
                   f,
                   ensure_ascii=False
               )
+
+          dimensione = 20
+
+          for i in range(0, len(dati), dimensione):
+
+              gruppo = dati[i:i + dimensione]
+
+              righe = []
+
+              for foto in gruppo:
+
+                  stato = (
+                      "✅ caricata"
+                      if foto["caricata"]
+                      else "❌ non caricata"
+                  )
+
+                  righe.append(
+                      f'**Foto {foto["numero"]}** — '
+                      f'{foto["nome"]} = {stato}'
+                  )
+
+              inizio = gruppo[0]["numero"]
+              fine = gruppo[-1]["numero"]
+
+              payload = {
+                  "username": "ZeroTwo",
+                  "embeds": [
+                      {
+                          "title": (
+                              f"📋 FOTO {inizio} - {fine}"
+                          ),
+                          "description": "\n".join(righe),
+                          "color": COLORE
+                      }
+                  ]
+              }
+
+              numero_file = (
+                  i // dimensione
+              ) + 1
+
+              with open(
+                  f"discord-lista-{numero_file}.json",
+                  "w",
+                  encoding="utf-8"
+              ) as f:
+
+                  json.dump(
+                      payload,
+                      f,
+                      ensure_ascii=False
+                  )
+
           PY
 
-          if [ -f discord-message-id.txt ]; then
+      - name: Aggiorna lista su Discord
+        if: steps.verifica_delete.outputs.cancellata == 'true'
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: |
+          set -e
 
-            MESSAGE_ID=$(cat discord-message-id.txt)
+          if [ -z "$DISCORD_WEBHOOK_URL" ]; then
+            echo \
+              "ERRORE: DISCORD_WEBHOOK_URL non configurato"
+            exit 1
+          fi
 
-            HTTP_CODE=$(curl \
-              -sS \
-              -o discord-response.txt \
-              -w "%{http_code}" \
-              -X PATCH \
-              -H "Content-Type: application/json" \
-              -H "User-Agent: ZeroTwo-GitHubActions/1.0" \
-              --data-binary @discord-payload.json \
-              "${DISCORD_WEBHOOK_URL}/messages/${MESSAGE_ID}")
+          sincronizza_messaggio () {
 
-            echo "Discord HTTP: $HTTP_CODE"
-            cat discord-response.txt || true
+            PAYLOAD="$1"
+            ID_FILE="$2"
 
-            if [ "$HTTP_CODE" != "200" ]; then
-              exit 1
+            echo "----------------------------------------"
+            echo "Payload: $PAYLOAD"
+            echo "ID file: $ID_FILE"
+
+            if [ -f "$ID_FILE" ] && [ -s "$ID_FILE" ]; then
+
+              MESSAGE_ID=$(tr -d '\r\n' < "$ID_FILE")
+
+              echo \
+                "Aggiorno messaggio Discord ${MESSAGE_ID}"
+
+              HTTP_CODE=$(curl \
+                -sS \
+                -o discord-response.json \
+                -w "%{http_code}" \
+                -X PATCH \
+                -H "Content-Type: application/json" \
+                -H "User-Agent: ZeroTwo-GitHubActions/1.0" \
+                --data-binary @"$PAYLOAD" \
+                "${DISCORD_WEBHOOK_URL}/messages/${MESSAGE_ID}")
+
+              echo "Discord PATCH HTTP: $HTTP_CODE"
+
+              if [ "$HTTP_CODE" = "200" ]; then
+
+                echo "Messaggio aggiornato correttamente."
+
+                rm -f discord-response.json
+
+                return 0
+
+              fi
+
+              echo \
+                "PATCH fallita. Creo un nuovo messaggio."
+
+              cat discord-response.json || true
+
             fi
-
-          else
 
             HTTP_CODE=$(curl \
               -sS \
@@ -275,49 +370,75 @@ jobs:
               -X POST \
               -H "Content-Type: application/json" \
               -H "User-Agent: ZeroTwo-GitHubActions/1.0" \
-              --data-binary @discord-payload.json \
+              --data-binary @"$PAYLOAD" \
               "${DISCORD_WEBHOOK_URL}?wait=true")
 
-            echo "Discord HTTP: $HTTP_CODE"
-            cat discord-response.json || true
+            echo "Discord POST HTTP: $HTTP_CODE"
 
             if [ "$HTTP_CODE" != "200" ]; then
+
+              cat discord-response.json || true
+
+              echo \
+                "ERRORE: impossibile creare il messaggio Discord."
+
               exit 1
+
             fi
 
-            python3 <<'PY'
-          import json
+            MESSAGE_ID=$(python3 -c \
+              'import json; print(json.load(open("discord-response.json"))["id"])')
 
-          with open("discord-response.json", "r", encoding="utf-8") as f:
-              risposta = json.load(f)
+            printf "%s" "$MESSAGE_ID" > "$ID_FILE"
 
-          message_id = risposta["id"]
+            echo \
+              "Salvato ID messaggio ${MESSAGE_ID} in ${ID_FILE}"
 
-          with open("discord-message-id.txt", "w", encoding="utf-8") as f:
-              f.write(message_id)
+            rm -f discord-response.json
 
-          print("ID messaggio Discord:", message_id)
-          PY
+          }
 
-          fi
+          sincronizza_messaggio \
+            "discord-riepilogo.json" \
+            "discord-id-riepilogo.txt"
 
-          rm -f discord-payload.json
-          rm -f discord-response.txt
+          for FILE in discord-lista-*.json; do
+
+            NUMERO_LISTA=$(
+              basename "$FILE" .json |
+              sed 's/discord-lista-//'
+            )
+
+            sincronizza_messaggio \
+              "$FILE" \
+              "discord-id-lista-${NUMERO_LISTA}.txt"
+
+          done
+
+          rm -f discord-riepilogo.json
+          rm -f discord-lista-*.json
           rm -f discord-response.json
 
-      - name: Salva ID messaggio Discord
+      - name: Salva ID messaggi Discord
         if: steps.verifica_delete.outputs.cancellata == 'true'
         run: |
           git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add discord-message-id.txt 2>/dev/null || true
+          git add discord-id-riepilogo.txt 2>/dev/null || true
+          git add discord-id-lista-*.txt 2>/dev/null || true
 
           if git diff --cached --quiet; then
+
+            echo "Nessun nuovo ID Discord da salvare."
             exit 0
+
           fi
 
-          git commit -m "Salvato ID messaggio Discord"
+          git commit \
+            -m "Aggiornati ID messaggi lista Discord"
+
           git push
 
       - name: Conferma cancellazione riuscita
@@ -326,10 +447,13 @@ jobs:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           NUMERO: ${{ github.event.client_payload.numero }}
         run: |
-          curl --fail-with-body -sS \
+          curl \
+            --fail-with-body \
+            -sS \
             -H "Content-Type: application/json" \
             -H "User-Agent: ZeroTwo-GitHubActions/1.0" \
-            -d "{\"content\":\"🗑️ **Foto ${NUMERO} cancellata correttamente dalla cartella immagini su GitHub.**\"}" \
+            -d \
+            "{\"content\":\"🗑️ **Foto ${NUMERO} cancellata correttamente dalla cartella immagini su GitHub.**\"}" \
             "$DISCORD_WEBHOOK_URL"
 
       - name: Conferma cancellazione fallita
@@ -338,8 +462,11 @@ jobs:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           NUMERO: ${{ github.event.client_payload.numero }}
         run: |
-          curl --fail-with-body -sS \
+          curl \
+            --fail-with-body \
+            -sS \
             -H "Content-Type: application/json" \
             -H "User-Agent: ZeroTwo-GitHubActions/1.0" \
-            -d "{\"content\":\"❌ **ERRORE: impossibile cancellare la foto ${NUMERO}.** Controlla GitHub Actions.\"}" \
+            -d \
+            "{\"content\":\"❌ **ERRORE: impossibile cancellare la foto ${NUMERO}.** Controlla GitHub Actions.\"}" \
             "$DISCORD_WEBHOOK_URL"
