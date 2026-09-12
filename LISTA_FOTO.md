@@ -198,5 +198,5 @@
 
 - **Foto 99** — da inserire la posizione della foto = ❌ non caricata
 
-- **Foto 100** — da inserire la posizione della foto = ❌ non caricata
+- **Foto 100** — da inserire la posizione della foto = ✅ caricata
 
