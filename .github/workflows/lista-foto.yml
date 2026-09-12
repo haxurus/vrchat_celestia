@@ -24,6 +24,12 @@ jobs:
           with open("lista-foto.json", "r", encoding="utf-8") as f:
               dati = json.load(f)
 
+          # Considera solamente le foto da 1 a 80
+          dati = [
+              foto for foto in dati
+              if 1 <= int(foto["numero"]) <= 80
+          ]
+
           dati = sorted(
               dati,
               key=lambda x: int(x["numero"])
@@ -65,6 +71,9 @@ jobs:
           for i in range(0, len(dati), dimensione):
 
               gruppo = dati[i:i + dimensione]
+
+              if not gruppo:
+                  continue
 
               righe = []
 
@@ -139,6 +148,10 @@ jobs:
           fi
 
           for FILE in discord-lista-*.json; do
+
+            if [ ! -f "$FILE" ]; then
+              continue
+            fi
 
             echo "Invio $FILE"
 
