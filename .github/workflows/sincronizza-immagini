@@ -1,0 +1,107 @@
+name: Sincronizza immagini esistenti
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  sincronizza:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Scarica repository
+        uses: actions/checkout@v4
+
+      - name: Sincronizza lista con cartella immagini
+        run: |
+          python3 <<'PY'
+          import json
+          import os
+
+          CARTELLA = "immagini"
+
+          ESTENSIONI = [
+              "png",
+              "jpg",
+              "jpeg",
+              "webp",
+              "gif",
+              "avif"
+          ]
+
+          with open("lista-foto.json", "r", encoding="utf-8") as f:
+              dati = json.load(f)
+
+          for foto in dati:
+
+              numero = int(foto["numero"])
+
+              trovata = False
+
+              for estensione in ESTENSIONI:
+
+                  percorso = os.path.join(
+                      CARTELLA,
+                      f"{numero}.{estensione}"
+                  )
+
+                  if os.path.isfile(percorso):
+                      trovata = True
+                      break
+
+              foto["caricata"] = trovata
+
+              if trovata:
+                  print(f"✅ Foto {numero} trovata")
+              else:
+                  print(f"❌ Foto {numero} non trovata")
+
+          dati = sorted(
+              dati,
+              key=lambda x: int(x["numero"])
+          )
+
+          with open("lista-foto.json", "w", encoding="utf-8") as f:
+              json.dump(
+                  dati,
+                  f,
+                  ensure_ascii=False,
+                  indent=2
+              )
+
+          with open("LISTA_FOTO.md", "w", encoding="utf-8") as f:
+
+              f.write("# LISTA FOTO\n\n")
+
+              for foto in dati:
+
+                  stato = (
+                      "✅ caricata"
+                      if foto["caricata"]
+                      else "❌ non caricata"
+                  )
+
+                  f.write(
+                      f'- **Foto {foto["numero"]}** — '
+                      f'{foto["nome"]} = {stato}\n\n'
+                  )
+
+          PY
+
+      - name: Salva lista aggiornata
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add lista-foto.json
+          git add LISTA_FOTO.md
+
+          if git diff --cached --quiet; then
+            echo "Lista già sincronizzata."
+            exit 0
+          fi
+
+          git commit -m "Sincronizzata lista con immagini esistenti"
+          git push
