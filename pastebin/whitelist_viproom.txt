@@ -24,3 +24,4 @@ kitsunefirefox
 Lev_Hiaba11
 Jiaqii
 MĮTTLĘ
+[1] Local Player
